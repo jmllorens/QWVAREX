@@ -127,8 +127,8 @@ class Mat_AlGaAs():
        mlh() -- Light hole effective mass
     """
     
-    def __init__(self,x=0):    
-        self.x = 0    
+    def __init__(self, x = 0):    
+        self.x = x
     
     def Eg(self):
         return 1.426 + 1.247 * self.x
