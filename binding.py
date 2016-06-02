@@ -22,6 +22,7 @@
 
 import scipy as sp
 import scipy.constants as spc
+import scipy.special as sps
 
 def Gaussian1d(z, a, z0=0, power = 1.0):
     """Auxiliar function to get a real wave function based on a Gaussian 
@@ -44,7 +45,6 @@ def G_int(x_in):
     Keyword arguments:
        x_in -- Normalized 2|ze-zh|/lambda
     """
-
     
     A = -8.9707E-1
     B = -2.5262E-1
@@ -65,6 +65,19 @@ def G_int(x_in):
     x = x_in[ind]
     G[ind] = 1.0/x - 3.0/x**3 + 45.0/x**5 - 1575.0/x**7
     
+    return G
+    
+def G_int_sp(x_in):
+    """Special function solution of G(x) (Coulomb integral)
+    Defined in Eq. (17b) Mares and Chuang, J. Appl. Phys. 74, 1388 (1993)
+
+    Keyword arguments:
+       x_in -- Normalized 2|ze-zh|/lambda
+    """
+
+    G = x_in*(sp.pi/2.0*(sps.struve(1,x_in)-sps.y1(x_in))-1)
+    G[x_in <= 1.0E-8] = 1.0    
+      
     return G
     
 def X_binding(par, qw):
@@ -135,8 +148,13 @@ class Mat_AlGaAs():
     def me(self):
         return 0.0665 + 0.0835 * self.x
     def mhh(self):
+        if self.x < 1.0E-3:
+            # For QW material (GaAs) Mares & Chuang use the Luttinger params
+            return 1.0/(6.79-2.0*1.92)
         return 0.34 + 0.42 * self.x
     def mlh(self):
+        if self.x < 1.0E-3:
+            return 1.0/(6.79+2.0*1.92)
         return 0.094 + 0.043 * self.x
         
 
@@ -177,7 +195,9 @@ def main():
 
     # Assign values to the QW object
     QW.grid = z
-    QW.mu = 1.0/(1.0/GaAs.me() + 1.0/GaAs.mhh())
+    # The heavy hole mass is the averaged in-plane
+    m_hh = 1.0/(6.79+1.92)
+    QW.mu = 1.0/(1.0/GaAs.me() + 1.0/m_hh)
     
     QW.Elec.n = 1
     QW.Elec.E = 1.0
