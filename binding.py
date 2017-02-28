@@ -23,6 +23,7 @@
 import scipy as sp
 import scipy.constants as spc
 import scipy.special as sps
+import scipy.integrate as spi
 
 def Gaussian1d(z, a, z0=0, power = 1.0):
     """Auxiliar function to get a real wave function based on a Gaussian 
@@ -79,7 +80,64 @@ def G_int_sp(x_in):
     G[x_in <= 1.0E-8] = 1.0    
       
     return G
+
+def f_osc(qw, E_X, a_2D, E_p = 25.0):
+    """Formula for the oscilator strength per unit area [nm^-2] at k_par = 0.
+
+    Based on Eq. (2) Andreani and Bassani, PRB 41, 7536 (1990)
+
+    Keyword argumets:
+        qw -> quantum well object. Class defined in binding.py
+        E_X -> Exciton binding energy.
+        a_2D -> Exciton radial extension (aka lambda parameter)
+        E_p -> Kane parameter (dipole |S> |X> matrix element)
+    """
+
+    E_tr = (qw.Elec.E - qw.Hole.E) + E_X
+
+    # Overlapp matrix element
+    I_cv = spi.trapz(sp.conjugate(qw.Elec.wf)*qw.Hole.wf, qw.grid)
+
+    F_QW_sq = 2.0/(sp.pi * a_2D**2)
+
+    return E_p/E_tr * I_cv.real**2 * F_QW_sq
+
+def tau_0(f_osc, n_index):
+    """Formula for the radiative lifetime [s] at k_par = 0.
+
+    Based on Eq. (3) Andreani, Tassone and Bassani SSC 77, 641 (1991).
+    """
+
+    # (1/4 pi eps_o) (e**2/(m_o c) = r_e * c, being r_e the classical electron radius
+
+    r_e = spc.physical_constants['classical electron radius'][0] * 1.0E9
+    c = spc.c * 1.0E9
+
+    # Recombination rate
+    G =  sp.pi / n_index * r_e * c * f_osc
+
+    # Recombination time in [s]
+    return 1.0/G
+
+def tau_T(qw, E_X, tau_0, n_index, T):
+    """Formula for the radiative lifetime at temperature T [s].
+
+    Based on Eq. (4) Andreani, Tassone and Bassani SSC 77, 641 (1991).
+    """
+
+    k_B = spc.physical_constants['Boltzmann constant in eV/K'][0]
+    h_bar = spc.physical_constants['Planck constant over 2 pi in eV s'][0]
+
+    M = qw.mu
+    E_tr = (qw.Elec.E - qw.Hole.E) + E_X
     
+    # 3 M k_B / (hbar**2 k_0**2) = 3 M' m_0 c**2 k_B / (E_tr**2 n_index**2)
+ 
+    Q = 3.0 * spc.m_e * spc.c**2 / spc.e * k_B
+
+    return Q * M * tau_0 / (E_tr**2 * n_index**2) * T 
+
+
 def X_binding(par, qw):
     """Computation of the exciton binding energy given the electron and hole
     wave function and the variational parameter par
